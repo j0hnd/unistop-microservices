@@ -23,7 +23,7 @@ class ProductAirport extends Base
 	// 	return $this->hasMany(Price::class, 'product_id');
 	// }
 
-    public function airports()
+    public function airport()
     {
         return $this->belongsTo(Airport::class, 'airport_id');
     }

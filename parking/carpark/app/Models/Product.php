@@ -8,24 +8,18 @@ use DB;
 class Product extends Base
 {
     protected $with = [
-        'carparks', 'airport', 'prices', 'closures', 'overrides'
+        'carpark', 'airport', 'prices', 'closures', 'overrides', 'carpark_services'
     ];
 
-
-    public function carparks()
+    public function carpark()
     {
-        return $this->hasMany(Carpark::class, 'id', 'carpark_id');
+        return $this->hasOne(Carpark::class, 'id', 'carpark_id');
     }
 
     public function airport()
     {
         return $this->hasMany(ProductAirport::class, 'product_id');
     }
-
-    // public function airport()
-    // {
-    //     return $this->belongsToMany(Airport::class, 'product_airports', 'product_id', 'airport_id')->whereNull('product_airports.deleted_at');
-    // }
 
     public function prices()
     {
@@ -40,6 +34,11 @@ class Product extends Base
     public function overrides()
     {
         return $this->hasMany(Override::class, 'product_id');
+    }
+
+    public function carpark_services()
+    {
+        return $this->belongsToMany(CarparkService::class, 'services', 'product_id', 'service_id')->whereNull('services.deleted_at');
     }
 
     public function scopeNotDeactivated($query)
@@ -71,7 +70,6 @@ class Product extends Base
         $products = null;
         $search = null;
         $overridePrice = null;
-        $isClosed = false;
         $i = 0;
 
         $airport = Airport::notDeleted()
@@ -86,7 +84,7 @@ class Product extends Base
                 $product = self::notDeleted()
                     ->notDeactivated()
                     ->where('id', $pa->product_id)
-                    ->with(['carparks' => function ($q) use ($startTime, $endTime) {
+                    ->with(['carpark' => function ($q) use ($startTime, $endTime) {
                         $q->notDeleted();
                         $q->notDeactivated();
                         $q->whereRaw("(carparks.is_24hrs_svc = 1 OR (TIME('".$startTime."') BETWEEN opening AND closing AND TIME('".$endTime."') BETWEEN opening AND closing))");
@@ -97,139 +95,169 @@ class Product extends Base
                     ->first();
 
                 if (! is_null($product)) {
-                    if ($product->carparks->isNotEmpty()) {
-                        foreach ($product->carparks as $carpark) {
-                            // check if booking is within 24hrs
-                            if ($carpark->no_bookings_not_less_than_24hrs == 1) {
-                                $dropOff = Carbon::parse($startDate->format('Y-m-d').' '.$startTime.':00');
-                                $timeDiff = $dropOff->diffInHours(now());
+                    if ($product->carpark->exists()) {
+                        $carpark = $product->carpark;
 
-                                if ($timeDiff <= 24) {
-                                    break;
-                                }
-                            }
+                        // check if booking is within 24hrs
+                        if ($carpark->no_bookings_not_less_than_24hrs == 1) {
+                            $dropOff = Carbon::parse($startDate->format('Y-m-d').' '.$startTime.':00');
+                            $timeDiff = $dropOff->diffInHours(now());
 
-                            // if prices not available move to next product
-                            if ($product->prices->isEmpty()) {
+                            if ($timeDiff <= 24) {
                                 break;
                             }
+                        }
 
-                            // get product prices
-                            $prices = $product->prices;
+                        // if prices not available move to next product
+                        if ($product->prices->isEmpty()) {
+                            break;
+                        }
 
-                            // check carpark's closure dates
-                            if ($product->closures->isNotEmpty()) {
-                                foreach ($product->closures as $closure) {
-                                    if (! is_null($closure->closed_date)) {
-                                        list($startClosure, $endClosure) = explode(' - ', $closure->closed_date);
-                                        $startClosure = Carbon::createFromFormat('d/m/Y', $startClosure);
-                                        $endClosure = Carbon::createFromFormat('d/m/Y', $endClosure);
+                        if (self::validateClosures($product->closures, $startDate, $endDate) === false) {
+                            // check price overrides
+                            $overridePrice = self::getOverrides($product->overrides, $product->prices, $startDate, $endDate, $noDays);
 
-                                        if (($startDate->timestamp >= $startClosure->timestamp and $startDate->timestamp <= $endClosure->timestamp) or
-                                            ($endDate->timestamp >= $startClosure->timestamp and $endDate->timestamp <= $endClosure->timestamp)) {
+                            foreach ($product->prices as $price) {
+                                if (!is_null($price->price_month) or !is_null($price->price_year)) {
+                                    if ($price->price_month == $startDate->format('F') and $price->price_year == $startDate->format('Y')) {
+                                        $key = array_search($product->id, array_column($products, 'product_id'));
 
-                                            $isClosed = true;
-                                            break;
+                                        if ($key !== false) {
+                                            unset($products[$key]);
                                         }
-                                    }
-                                }
-                            }
 
-                            if ($isClosed === false) {
-                                // check price overrides
-                                if (count($product->overrides)) {
-                                    $operator = null;
-                                    $overridePrice = 0;
-                                    foreach ($product->overrides as $overrides) {
-                                        list($startOverride, $endOverride) = explode(' - ', $overrides->override_dates);
-                                        $startOverride = Carbon::parse($startOverride);
-                                        $endOverride = Carbon::parse($endOverride);
-
-                                        for ($day = 1; $day <= $noDays; $day++) {
-                                            if ($startDate->timestamp >= $startOverride->timestamp and $startDate->timestamp <= $endOverride->timestamp) {
-                                                $first = substr($overrides->override_price, 0, 1);
-
-                                                if (!is_numeric($first)) {
-                                                    $overridePrice += substr($overrides->override_price, 1);
-                                                } else {
-                                                    $overridePrice += $overrides->override_price;
-                                                }
-
-                                                if ($overrides->override_price > 0) {
-                                                    $operator = 1;
-                                                } else {
-                                                    $operator = 0;
-                                                }
-                                            }
-
-                                            $sel = $startDate->addDays($day)->format('Y-m-d');
-                                        }
-                                    }
-
-                                    if (!is_null($operator)) {
-                                        if ($operator) {
-                                            $overridePrice = $prices[0]->price_value + $overridePrice;
-                                        } else {
-                                            $overridePrice = $prices[0]->price_value - $overridePrice;
-                                        }
-                                    } else {
-                                        $overridePrice = $prices[0]->price_value;
-                                    }
-                                }
-
-                                foreach ($prices as $price) {
-                                    if (!is_null($price->price_month) or !is_null($price->price_year)) {
-                                        if ($price->price_month == $startDate->format('F') and $price->price_year == $startDate->format('Y')) {
-                                            $key = array_search($product->id, array_column($products, 'product_id'));
-
-                                            if ($key !== false) {
-                                                unset($products[$key]);
-                                            }
-
-                                            $products[$i] = [
-                                                'product_id' => $product->id,
-                                                'airport_id' => '',
-                                                'airport_name' => '',
-                                                'carpark' => '',
-                                                'image' => $product->image,
-                                                'price_id' => $price->id,
-                                                'prices' => $price
-                                            ];
-                                        }
-                                    } else {
                                         $products[$i] = [
                                             'product_id' => $product->id,
-                                            'airport_id' => '',
-                                            'airport_name' => '',
-                                            'carpark' => '',
+                                            'airport_id' => $pa->airport_id,
+                                            'airport_name' => $pa->airport->airport_name,
+                                            'carpark' => $carpark->name,
                                             'image' => $product->image,
                                             'price_id' => $price->id,
-                                            'prices' => $price
+                                            'prices' => $price,
+                                            'drop_off' => $startDate." ".$startTime,
+                                            'return_at' => $endDate." ".$endTime,
+                                            'overrides' => $overridePrice,
+                                            'services' => $product->carpark_services,
+                                            'short_description' => $product->short_description,
+                                            'description' => $product->description,
+                                            'on_arrival' => $product->on_arrival,
+                                            'on_return' => $product->on_return,
+                                            'latitude' => $airport->latitude,
+                                            'longitude' => $airport->longitude
                                         ];
                                     }
-
-                                    $i++;
+                                } else {
+                                    $products[$i] = [
+                                        'product_id' => $product->id,
+                                        'airport_id' => $pa->airport_id,
+                                        'airport_name' => $pa->airport->airport_name,
+                                        'carpark' => $carpark->name,
+                                        'image' => $product->image,
+                                        'price_id' => $price->id,
+                                        'prices' => $price,
+                                        'drop_off' => $startDate." ".$startTime,
+                                        'return_at' => $endDate." ".$endTime,
+                                        'overrides' => $overridePrice,
+                                        'services' => $product->carpark_services,
+                                        'short_description' => $product->short_description,
+                                        'description' => $product->description,
+                                        'on_arrival' => $product->on_arrival,
+                                        'on_return' => $product->on_return,
+                                        'latitude' => $pa->airport->latitude,
+                                        'longitude' => $pa->airport->longitude
+                                    ];
                                 }
+
+                                $i++;
                             }
                         }
                     }
                 }
             }
 
-            // if (!is_null($products) and !isset($data['sub'])) {
-            //     foreach ($products as $key => $row) {
-            //         $matches[$key] = $row['overrides'];
-            //         if (is_null($row['overrides'])) {
-            //             $price = $row['prices'];
-            //             $matches[$key] = $price->price_value;
-            //         }
-            //     }
-            //
-            //     array_multisort($matches, SORT_ASC, $products);
-            // }
+            if (!is_null($products) and !isset($data['sub'])) {
+                foreach ($products as $key => $row) {
+                    $matches[$key] = $row['overrides'];
+                    if (is_null($row['overrides'])) {
+                        $price = $row['prices'];
+                        $matches[$key] = $price->price_value;
+                    }
+                }
+
+                array_multisort($matches, SORT_ASC, $products);
+            }
         }
 
-        dd($products);
-        return null;
+        return $products;
+    }
+
+    private static function validateClosures($closures, $startDate, $endDate)
+    {
+        $isClosed = false;
+
+        if ($closures->isNotEmpty()) {
+            foreach ($closures as $closure) {
+                if (! is_null($closure->closed_date)) {
+                    list($startClosure, $endClosure) = explode(' - ', $closure->closed_date);
+                    $startClosure = Carbon::createFromFormat('d/m/Y', $startClosure);
+                    $endClosure = Carbon::createFromFormat('d/m/Y', $endClosure);
+
+                    if (($startDate->timestamp >= $startClosure->timestamp and $startDate->timestamp <= $endClosure->timestamp) or
+                        ($endDate->timestamp >= $startClosure->timestamp and $endDate->timestamp <= $endClosure->timestamp)) {
+
+                        $isClosed = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $isClosed;
+    }
+
+    private static function getOverrides($overrides, $prices, $startDate, $endDate, $noDays)
+    {
+        $operator = null;
+        $overridePrice = 0;
+
+        if (count($overrides)) {
+            foreach ($overrides as $overrides) {
+                list($startOverride, $endOverride) = explode(' - ', $overrides->override_dates);
+                $startOverride = Carbon::createFromFormat('d/m/Y', $startOverride);
+                $endOverride = Carbon::createFromFormat('d/m/Y', $endOverride);
+
+                for ($day = 1; $day <= $noDays; $day++) {
+                    if ($startDate->timestamp >= $startOverride->timestamp and $startDate->timestamp <= $endOverride->timestamp) {
+                        $first = substr($overrides->override_price, 0, 1);
+
+                        if (!is_numeric($first)) {
+                            $overridePrice += substr($overrides->override_price, 1);
+                        } else {
+                            $overridePrice += $overrides->override_price;
+                        }
+
+                        if ($overrides->override_price > 0) {
+                            $operator = 1;
+                        } else {
+                            $operator = 0;
+                        }
+                    }
+
+                    $sel = $startDate->addDays($day)->format('Y-m-d');
+                }
+            }
+
+            if (!is_null($operator)) {
+                if ($operator) {
+                    $overridePrice = $prices[0]->price_value + $overridePrice;
+                } else {
+                    $overridePrice = $prices[0]->price_value - $overridePrice;
+                }
+            } else {
+                $overridePrice = $prices[0]->price_value;
+            }
+        }
+
+        return $overridePrice;
     }
 }

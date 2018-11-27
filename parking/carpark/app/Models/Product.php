@@ -175,7 +175,7 @@ class Product extends Base
                 }
             }
 
-            if (!is_null($products) and !isset($data['sub'])) {
+            if (!is_null($products)) {
                 foreach ($products as $key => $row) {
                     $matches[$key] = $row['overrides'];
                     if (is_null($row['overrides'])) {

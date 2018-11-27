@@ -47,6 +47,15 @@ class CarparkController extends BaseApiController
             return $this->respondWithError($this->errors);
         }
 
-        dd(Product::search($formRequest['airport'], $formRequest['start_date'], $formRequest['end_date'], $formRequest['start_time'], $formRequest['end_time']));
+        $products = Product::search($formRequest['airport'], $formRequest['start_date'], $formRequest['end_date'], $formRequest['start_time'], $formRequest['end_time']);
+
+        return $this->respond([
+            'status'      => 'success',
+            'status_code' => $this->getStatusCode(),
+            'message'     => 'Success',
+            'data'        => [
+                'products' => $products
+            ]
+        ]);
     }
 }

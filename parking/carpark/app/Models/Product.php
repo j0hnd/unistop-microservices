@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Carbon\Carbon;
-use DB;
 
 class Product extends Base
 {
@@ -50,13 +49,13 @@ class Product extends Base
     /*
      * Search carparks on the given criteria
      *
-     * @param Integer   $airport
-     * @param Date      $startDate
-     * @param Date      $endDate
-     * @param Time      $startTime
-     * @param Time      $endtime
+     * @param int $airport
+     * @param Carbon\Carbon $startDate
+     * @param Carbon\Carbon $endDate
+     * @param string $startTime
+     * @param string $endtime
      *
-     * @return mixed
+     * @return array
      *
      */
     public static function search($airport, $startDate, $endDate, $startTime, $endTime)
@@ -191,6 +190,15 @@ class Product extends Base
         return $products;
     }
 
+    /*
+     * Check if carpark has a closure dates
+     *
+     * @param Illuminate\Support\Collection $closures
+     * @param Carbon\Carbon $startDate
+     * @param Carbon\Carbon $endDate
+     *
+     * @return bool
+     */
     private static function validateClosures($closures, $startDate, $endDate)
     {
         $isClosed = false;
@@ -215,6 +223,17 @@ class Product extends Base
         return $isClosed;
     }
 
+    /*
+     * Calculates product's price overrides
+     *
+     * @param lluminate\Support\Collection $overrides
+     * @param lluminate\Support\Collection $prices
+     * @param Carbon\Carbon $startDate
+     * @param Carbon\Carbon $endDate
+     * @param int $noDays
+     *
+     * @return float
+     */
     private static function getOverrides($overrides, $prices, $startDate, $endDate, $noDays)
     {
         $operator = null;

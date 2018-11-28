@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use App\Repositories\Transformers\ServiceTransformer;
+use App\Repositories\Transformers\PriceTransformer;
 
 class Product extends Base
 {
     protected $with = [
         'carpark', 'airport', 'prices', 'closures', 'overrides', 'carpark_services'
     ];
+
 
     public function carpark()
     {
@@ -45,7 +48,6 @@ class Product extends Base
         return $query->whereNull('deactivated_at');
     }
 
-
     /*
      * Search carparks on the given criteria
      *
@@ -70,6 +72,17 @@ class Product extends Base
         $search = null;
         $overridePrice = null;
         $i = 0;
+
+        /**
+         * @var App\Repositories\Transformers\ServiceTransformer
+         */
+        $serviceTransformer = new ServiceTransformer();
+
+        /**
+         * @var App\Repositories\Transformers\PriceTransformer
+         */
+        $priceTransformer = new PriceTransformer();
+
 
         $airport = Airport::notDeleted()
             ->notDeactivated()
@@ -130,19 +143,18 @@ class Product extends Base
                                             'airport_id' => $pa->airport_id,
                                             'airport_name' => $pa->airport->airport_name,
                                             'carpark' => $carpark->name,
-                                            'image' => $product->image,
-                                            'price_id' => $price->id,
-                                            'prices' => $price,
                                             'drop_off' => $startDate." ".$startTime,
                                             'return_at' => $endDate." ".$endTime,
-                                            'overrides' => $overridePrice,
-                                            'services' => $product->carpark_services,
                                             'short_description' => $product->short_description,
                                             'description' => $product->description,
                                             'on_arrival' => $product->on_arrival,
                                             'on_return' => $product->on_return,
-                                            'latitude' => $airport->latitude,
-                                            'longitude' => $airport->longitude
+                                            'latitude' => $pa->airport->latitude,
+                                            'longitude' => $pa->airport->longitude,
+                                            'image' => $product->image,
+                                            'price' => $priceTransformer->transform($price),
+                                            'overrides' => $overridePrice,
+                                            'services' => $serviceTransformer->transform($product->carpark_services)
                                         ];
                                     }
                                 } else {
@@ -151,19 +163,18 @@ class Product extends Base
                                         'airport_id' => $pa->airport_id,
                                         'airport_name' => $pa->airport->airport_name,
                                         'carpark' => $carpark->name,
-                                        'image' => $product->image,
-                                        'price_id' => $price->id,
-                                        'prices' => $price,
                                         'drop_off' => $startDate." ".$startTime,
                                         'return_at' => $endDate." ".$endTime,
-                                        'overrides' => $overridePrice,
-                                        'services' => $product->carpark_services,
                                         'short_description' => $product->short_description,
                                         'description' => $product->description,
                                         'on_arrival' => $product->on_arrival,
                                         'on_return' => $product->on_return,
                                         'latitude' => $pa->airport->latitude,
-                                        'longitude' => $pa->airport->longitude
+                                        'longitude' => $pa->airport->longitude,
+                                        'image' => $product->image,
+                                        'price' => $priceTransformer->transform($price),
+                                        'overrides' => $overridePrice,
+                                        'services' => $serviceTransformer->transform($product->carpark_services)
                                     ];
                                 }
 

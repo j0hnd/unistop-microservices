@@ -207,6 +207,8 @@ class BaseApiController extends Controller
             if (json_last_error() == JSON_ERROR_NONE) {
                 if ($hasher['status'] == 'success') {
                     $token = $hasher['data']['token'];
+                } else {
+                    $this->errors = $hasher['data'];
                 }
             }
         }

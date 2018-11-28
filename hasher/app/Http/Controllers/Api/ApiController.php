@@ -34,8 +34,8 @@ class ApiController extends Controller
     protected $errors = null;
 
     protected $rules = [
-		'appname' => 'required',
-		'service' => 'required',
+		'appname' => 'required|exists:applications,slug',
+		'service' => 'required|exists:services,slug',
 	];
 
     /**

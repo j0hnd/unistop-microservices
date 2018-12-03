@@ -15,6 +15,6 @@ use Illuminate\Http\Request;
 
 Route::group(['middleware' => 'api', 'prefix' => 'v1'], function () {
     Route::group(['prefix' => 'carpark'], function () {
-        Route::post('search', 'Api\CarparkController@search')->name('carpark.search');
+        Route::post('search/product.json', 'Api\CarparkController@search')->name('carpark.search');
     });
 });

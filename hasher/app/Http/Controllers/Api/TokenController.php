@@ -135,15 +135,26 @@ class TokenController extends ApiController
 			return $this->respondValidationError("Validation errors", $this->errors);
 		}
 
-        $token = (string) JWTAuth::getToken();
+        try {
+            $token = (string) JWTAuth::getToken();
 
-        if ($token == Application::getToken($data['appname'], $data['service'])) {
-            return $this->respond([
-                'status'      => 'success',
-                'status_code' => $this->getStatusCode(),
-                'message'     => 'Success'
-            ]);
-        }
+            if ($token == Application::getToken($data['appname'], $data['service'])) {
+                JWTAuth::parseToken()->authenticate();
+
+                return $this->respond([
+                    'status'      => 'success',
+                    'status_code' => $this->getStatusCode(),
+                    'message'     => 'Success'
+                ]);
+            }
+
+        } catch (Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+            return $this->respondWithError("Token expired");
+    	} catch (Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+            return $this->respondWithError("Token Invalid");
+    	} catch (Tymon\JWTAuth\Exceptions\JWTException $e) {
+            return $this->respondWithError("Token not available");
+    	}
 
         return $this->respondWithError("Application not authorized!");
     }

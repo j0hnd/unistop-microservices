@@ -5,26 +5,26 @@ and toggle services which are active.
 ### Usage
 *POST* `/api/v1/get.json`
 
-#### Parameters
+##### Parameters
 - appname
 - service
 
 *POST* `/api/v1/refresh.json`
 
-### Header
+#### Header
 - Service Token
 _Authorization: Bearer <service token>_
 
-### Parameters
+#### Parameters
 - appname
 - service
 
 *POST* `/api/v1/vaidate.json`
 
-### Header
+#### Header
 - Service Token
 _Authorization: Bearer <service token>_
 
-### Parameters
+#### Parameters
 - appname
 - service

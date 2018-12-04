@@ -19,8 +19,8 @@ use Illuminate\Http\Request;
 
 Route::group(['middleware' => 'hasher', 'prefix' => 'v1'], function () {
     Route::group(['prefix' => 'token'], function () {
-        Route::post('/get', 'Api\TokenController@getToken')->name('token.get');
-        Route::post('/refresh', 'Api\TokenController@refreshToken')->name('token.refresh');
-        Route::post('/validate', 'Api\TokenController@validateToken')->name('token.validate');
+        Route::post('/get.json', 'Api\TokenController@getToken')->name('token.get');
+        Route::post('/refresh.json', 'Api\TokenController@refreshToken')->name('token.refresh');
+        Route::post('/validate.json', 'Api\TokenController@validateToken')->name('token.validate');
     });
 });

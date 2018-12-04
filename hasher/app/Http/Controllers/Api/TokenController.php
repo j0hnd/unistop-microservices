@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use JWTAuth;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenBlacklistedException;
+use Tymon\JWTAuth\Exceptions\TokenInvalidException;
+use Tymon\JWTAuth\Exceptions\JWTException;
 
 class TokenController extends ApiController
 {
@@ -32,13 +34,7 @@ class TokenController extends ApiController
 			return $this->respondValidationError("Validation errors", $this->errors);
 		}
 
-        $application = Application::where('slug', $data['appname'])
-            ->whereHas('services', function ($query) use ($service_name) {
-                $query->where('slug', $service_name);
-                $query->notDeleted();
-                $query->enabled();
-            })
-            ->first();
+        $application = (Application::getDetails($data['appname'], $service_name))->first();
 
         if ($application->exists()) {
             $service = $application->services->where('slug', $data['service'])->first();
@@ -136,23 +132,47 @@ class TokenController extends ApiController
 		}
 
         try {
-            $token = (string) JWTAuth::getToken();
+            JWTAuth::setRequest($request)->parseToken();
+        } catch (\Throwable $e) {
+            return $this->respondWithError($e->getMessage());
+        }
 
-            if ($token == Application::getToken($data['appname'], $data['service'])) {
-                JWTAuth::parseToken()->authenticate();
-
-                return $this->respond([
-                    'status'      => 'success',
-                    'status_code' => $this->getStatusCode(),
-                    'message'     => 'Success'
-                ]);
+        try {
+            if (false == JWTAuth::authenticate(JWTAuth::getToken())) {
+                return $this->respondWithError("Token not authenticated");
             }
 
-        } catch (Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
-            return $this->respondWithError("Token expired");
-    	} catch (Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+            return $this->respond([
+                'status'      => 'success',
+                'status_code' => $this->getStatusCode(),
+                'message'     => 'Success'
+            ]);
+        } catch (TokenExpiredException $e) {
+            try {
+                $token = JWTAuth::refresh(JWTAuth::getToken());
+
+                $application = (Application::getDetails($data['appname'], $data['service']))->first();
+
+                if ($application->exists()) {
+                    $service = $application->services->where('slug', $data['service'])->first();
+                    if ($service->exists()) {
+                        if ($service->token()->update(['token' => $token])) {
+                            return $this->respond([
+                                'status'      => 'success',
+                                'status_code' => $this->getStatusCode(),
+                                'message'     => 'Token has been refreshed'
+                            ]);
+                        }
+                    }
+                }
+
+                return $this->respondWithError("Unable to update token");
+            } catch (TokenExpiredException $e) {
+                return $this->respondWithError("Unable to refresh token");
+            }
+    	} catch (TokenInvalidException $e) {
             return $this->respondWithError("Token Invalid");
-    	} catch (Tymon\JWTAuth\Exceptions\JWTException $e) {
+    	} catch (JWTException $e) {
             return $this->respondWithError("Token not available");
     	}
 

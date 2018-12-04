@@ -38,4 +38,14 @@ class Application extends Base
 
 		return $service->token->first()->token;
 	}
+
+    public static function getDetails($appName, $service)
+    {
+        return self::where('slug', $appName)
+            ->whereHas('services', function ($query) use ($service) {
+                $query->where('slug', $service);
+                $query->notDeleted();
+                $query->enabled();
+            });
+    }
 }

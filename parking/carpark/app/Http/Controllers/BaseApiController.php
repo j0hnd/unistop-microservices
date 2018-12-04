@@ -169,7 +169,7 @@ class BaseApiController extends Controller
                 ]
             ]);
 
-            $response = $client->post(config('app.hasher_api_url') . "/validate", [
+            $response = $client->post(config('app.hasher_api_url') . "/validate.json", [
                 'form_params' => [
                     'appname' => $applicationName,
                     'service' => $serviceName
@@ -195,7 +195,7 @@ class BaseApiController extends Controller
 
         $token = null;
 
-        $response = $client->post(config('app.hasher_api_url') . "/get", [
+        $response = $client->post(config('app.hasher_api_url') . "/get.json", [
             'form_params' => [
                 'appname' => $applicationName,
                 'service' => $serviceName

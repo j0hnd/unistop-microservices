@@ -1,5 +1,5 @@
 # Hasher
-Is an application that will manage which apps are authorized to endpoints of the given system. This will generate tokens
+Is an application that will manage apps who are authorized to use endpoints of the given system. This will generate tokens
 and toggle services which are active.
 
 ### Usage

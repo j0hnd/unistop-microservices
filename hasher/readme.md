@@ -12,7 +12,6 @@ and toggle services which are active.
 *POST* `/api/v1/refresh.json`
 
 #### Header
-- Service Token
 _Authorization: Bearer <service token>_
 
 #### Parameters
@@ -22,7 +21,6 @@ _Authorization: Bearer <service token>_
 *POST* `/api/v1/vaidate.json`
 
 #### Header
-- Service Token
 _Authorization: Bearer <service token>_
 
 #### Parameters

@@ -6,7 +6,6 @@ e.g. carpark name, carpark service, and price, etc.
 *POST* `/api/v1/carpark/search.json`
 
 ##### Header
-- Service Token
 _Authorization: Bearer <service token>_
 
 ##### Post parameters

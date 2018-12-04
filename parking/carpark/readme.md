@@ -6,12 +6,12 @@ e.g. carpark name, carpark service, and price, etc.
 *POST* `/api/v1/carpark/search.json`
 
 ## Requirements:
-    ### *Header*
-    - Application Token
+#### Header
+- Application Token
 
-    ### Post parameters
-    - Airport ID
-    - From Date
-    - End Date
-    - Start Time
-    - End Time 
+#### Post parameters
+- Airport ID
+- From Date
+- End Date
+- Start Time
+- End Time 

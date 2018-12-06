@@ -229,4 +229,5 @@ return [
 
     ],
 
+    'hasher_api_url' => env('HASHER_API_URL', 'http://localhost')
 ];
